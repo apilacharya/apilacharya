@@ -1,0 +1,53 @@
+name: Generate Snake Animation
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # Runs every 30 minutes
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Generate snake animation
+        uses: Platane/snk@v3
+        with:
+          github_user_name: apilacharya
+          outputs: |
+            dist/github-contribution-grid-snake.svg
+            dist/github-contribution-grid-snake-dark.svg?palette=github-dark
+
+      - name: Commit & Push changes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('./dist/github-contribution-grid-snake.svg')) {
+              console.log('Snake animation file exists.');
+              const output = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/main' // or 'heads/master' if that's your main branch
+              });
+              await github.rest.git.createCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                message: 'docs: Update snake animation',
+                tree: output.data.object.sha,
+                parents: [output.data.object.sha]
+              });
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/main', // or 'heads/master'
+                sha: output.data.object.sha
+              });
+              console.log('Committing and pushing snake animation.');
+            } else {
+              console.log('Snake animation file does not exist. Skipping commit.');
+            }
