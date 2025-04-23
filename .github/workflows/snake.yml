@@ -2,8 +2,8 @@ name: Generate Snake Animation
 
 on:
   schedule:
-    - cron: "*/30 * * * *" # Runs every 30 minutes
-  workflow_dispatch:  # Allows manual triggering
+    - cron: "0 0 * * *" # daily at midnight
+  workflow_dispatch:
 
 jobs:
   generate:
@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
       - name: Generate snake animation
@@ -20,34 +20,70 @@ jobs:
           github_user_name: apilacharya
           outputs: |
             dist/github-contribution-grid-snake.svg
-            dist/github-contribution-grid-snake-dark.svg?palette=github-dark
 
       - name: Commit & Push changes
         uses: actions/github-script@v6
         with:
           script: |
             const fs = require('fs');
-            if (fs.existsSync('./dist/github-contribution-grid-snake.svg')) {
-              console.log('Snake animation file exists.');
-              const output = await github.rest.git.getRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: 'heads/main' // or 'heads/master' if that's your main branch
-              });
-              await github.rest.git.createCommit({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                message: 'docs: Update snake animation',
-                tree: output.data.object.sha,
-                parents: [output.data.object.sha]
-              });
-              await github.rest.git.updateRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: 'heads/main', // or 'heads/master'
-                sha: output.data.object.sha
-              });
-              console.log('Committing and pushing snake animation.');
-            } else {
+            const path = './dist/github-contribution-grid-snake.svg';
+
+            if (!fs.existsSync(path)) {
               console.log('Snake animation file does not exist. Skipping commit.');
+              return;
             }
+
+            const content = fs.readFileSync(path, { encoding: 'base64' });
+
+            const branch = 'main'; // change if needed
+            const refData = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${branch}`
+            });
+            const latestCommitSha = refData.data.object.sha;
+
+            const commitData = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: latestCommitSha
+            });
+            const baseTreeSha = commitData.data.tree.sha;
+
+            const blobData = await github.rest.git.createBlob({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              content: content,
+              encoding: 'base64'
+            });
+
+            const newTree = await github.rest.git.createTree({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base_tree: baseTreeSha,
+              tree: [
+                {
+                  path: 'output/github-contribution-grid-snake.svg',
+                  mode: '100644',
+                  type: 'blob',
+                  sha: blobData.data.sha
+                }
+              ]
+            });
+
+            const newCommit = await github.rest.git.createCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              message: 'docs: update snake animation',
+              tree: newTree.data.sha,
+              parents: [latestCommitSha]
+            });
+
+            await github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${branch}`,
+              sha: newCommit.data.sha
+            });
+
+            console.log('Snake animation updated and pushed successfully!');
