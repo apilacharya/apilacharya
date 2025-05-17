@@ -40,7 +40,7 @@
 
 ## 🏗️ Featured Projects
 
-### 🎯 [TicketBounty](https://github.com/apilacharya/Ticket-Bounty)
+### 🎯 [BountiFy](https://github.com/apilacharya/bountify)
 > **Next.js, TypeScript, Prisma, PostgreSQL, shadcn/ui, Stripe**  
 A modern platform for posting & solving issues with bounties.  
 - Secure authentication (Clerk), role-based access  
